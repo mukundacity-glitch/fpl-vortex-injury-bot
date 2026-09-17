@@ -1,43 +1,51 @@
-name: FPL Injury News
+name: FPL Vortex Injury News
 
 on:
   workflow_dispatch:
+    inputs:
+      test_discord:
+        description: "Send a rich Discord test message"
+        required: true
+        default: false
+        type: boolean
+
+  schedule:
+    - cron: "7,22,37,52 * * * *"
 
 permissions:
   contents: read
 
+concurrency:
+  group: fpl-vortex-injury-news
+  cancel-in-progress: false
+
 jobs:
-  test-fpl-api:
+  injury-news:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
-      - name: Test FPL API
+      - name: Restore injury state
+        uses: actions/cache@v6
+        with:
+          path: data
+          key: fpl-injury-state-${{ github.run_id }}
+          restore-keys: |
+            fpl-injury-state-
+
+      - name: Prepare data directory
+        run: mkdir -p data
+
+      - name: Run FPL Vortex Injury Engine
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          TEST_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.test_discord || false }}
         run: |
-          python - <<'PY'
-          import json
-          import urllib.request
-
-          url = "https://fantasy.premierleague.com/api/bootstrap-static/"
-
-          request = urllib.request.Request(
-              url,
-              headers={
-                  "User-Agent": "FPL-Vortex-Injury-Bot/1.0"
-              }
-          )
-
-          with urllib.request.urlopen(request, timeout=30) as response:
-              data = json.loads(response.read().decode("utf-8"))
-
-          players = data.get("elements", [])
-          teams = data.get("teams", [])
-
-          print("FPL API connection successful.")
-          print(f"Players returned: {len(players)}")
-          print(f"Teams returned: {len(teams)}")
-          PY
+          python src/injury_bot.py
