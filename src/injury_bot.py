@@ -645,7 +645,7 @@ def create_card(
     # ---------------------------------------------------------
 
     header_font = load_font(
-        38,
+        48,
         bold=True,
     )
 
@@ -1152,27 +1152,55 @@ def run_preview():
     }
 
     current_event = next(
-        (
-            event
-            for event in data.get(
-                "events",
-                []
-            )
-            if event.get(
-                "is_current"
-            )
-        ),
-        None,
-    )
-
-    gameweek = (
-        current_event.get(
-            "id",
-            "?",
+    (
+        event
+        for event in data.get(
+            "events",
+            []
         )
-        if current_event
-        else "?"
+        if event.get("is_current")
+    ),
+    None,
+)
+
+next_event = next(
+    (
+        event
+        for event in data.get(
+            "events",
+            []
+        )
+        if event.get("is_next")
+    ),
+    None,
+)
+
+unfinished_event = next(
+    (
+        event
+        for event in data.get(
+            "events",
+            []
+        )
+        if not event.get("finished")
+    ),
+    None,
+)
+
+selected_event = (
+    current_event
+    or next_event
+    or unfinished_event
+)
+
+gameweek = (
+    selected_event.get(
+        "id",
+        "?"
     )
+    if selected_event
+    else "?"
+)
 
     selected = []
 
@@ -1307,27 +1335,55 @@ def run_monitor():
     }
 
     current_event = next(
-        (
-            event
-            for event in data.get(
-                "events",
-                []
-            )
-            if event.get(
-                "is_current"
-            )
-        ),
-        None,
-    )
-
-    gameweek = (
-        current_event.get(
-            "id",
-            "?",
+    (
+        event
+        for event in data.get(
+            "events",
+            []
         )
-        if current_event
-        else "?"
+        if event.get("is_current")
+    ),
+    None,
+)
+
+next_event = next(
+    (
+        event
+        for event in data.get(
+            "events",
+            []
+        )
+        if event.get("is_next")
+    ),
+    None,
+)
+
+unfinished_event = next(
+    (
+        event
+        for event in data.get(
+            "events",
+            []
+        )
+        if not event.get("finished")
+    ),
+    None,
+)
+
+selected_event = (
+    current_event
+    or next_event
+    or unfinished_event
+)
+
+gameweek = (
+    selected_event.get(
+        "id",
+        "?"
     )
+    if selected_event
+    else "?"
+)
 
     current = {}
 
