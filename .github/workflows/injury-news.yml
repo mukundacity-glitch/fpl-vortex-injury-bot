@@ -31,10 +31,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Set up Python
+            - name: Set up Python
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
 
       - name: Restore injury state
         uses: actions/cache@v6
