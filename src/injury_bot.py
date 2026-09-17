@@ -649,8 +649,8 @@ def create_card(
     logo = load_logo()
 
     header_height = 108
-    row_height = 116
-    takeaway_height = 88
+    row_height = 118
+    takeaway_height = 82
     footer_height = 48
 
     height = (
@@ -658,7 +658,7 @@ def create_card(
         + row_height * len(players)
         + takeaway_height
         + footer_height
-        + 28
+        + 24
     )
 
     canvas = Image.new(
@@ -675,6 +675,51 @@ def create_card(
     )
 
     # ---------------------------------------------------------
+    # FONTS
+    # ---------------------------------------------------------
+
+    header_font = load_font(
+        52,
+        bold=True,
+    )
+
+    gameweek_font = load_font(
+        30,
+        bold=True,
+    )
+
+    player_font = load_font(
+        44,
+        bold=True,
+    )
+
+    meta_font = load_font(
+        27,
+        bold=True,
+    )
+
+    update_font = load_font(
+        27,
+        bold=False,
+    )
+
+    small_font = load_font(
+        22,
+        bold=False,
+    )
+
+    takeaway_font = fit_font(
+        draw,
+        build_takeaway(
+            category
+        ),
+        1150,
+        28,
+        min_size=20,
+        bold=False,
+    )
+
+    # ---------------------------------------------------------
     # HEADER
     # ---------------------------------------------------------
 
@@ -688,39 +733,30 @@ def create_card(
         fill=style["header"] + (255,),
     )
 
-    # Logo before symbol.
     paste_contain(
         canvas,
         logo,
         (
-            40,
-            12,
-            130,
-            96,
+            38,
+            10,
+            132,
+            98,
         ),
     )
 
-    header_font = load_font(
-        45,
-        bold=True,
+    header_text = (
+        f"{style['symbol']} "
+        f"{style['label']}"
     )
 
     draw.text(
         (
-            145,
-            30,
+            148,
+            26,
         ),
-        (
-            f"{style['symbol']} "
-            f"{style['label']}"
-        ),
+        header_text,
         font=header_font,
         fill=BLACK,
-    )
-
-    gw_font = load_font(
-        30,
-        bold=True,
     )
 
     gw_text = f"GW{gameweek}"
@@ -728,16 +764,16 @@ def create_card(
     gw_width = text_width(
         draw,
         gw_text,
-        gw_font,
+        gameweek_font,
     )
 
     draw.text(
         (
             WIDTH - gw_width - 45,
-            34,
+            36,
         ),
         gw_text,
-        font=gw_font,
+        font=gameweek_font,
         fill=BLACK,
     )
 
@@ -745,36 +781,24 @@ def create_card(
     # PLAYER ROWS
     # ---------------------------------------------------------
 
-    player_font = load_font(
-        44,
-        bold=True,
-    )
-
-    meta_font = load_font(
-        27,
-        bold=False,
-    )
-
-    update_font = load_font(
-        28,
-        bold=False,
-    )
-
-    status_font = load_font(
-        27,
-        bold=True,
-    )
-
-    y = header_height + 12
+    y = header_height + 10
 
     for player in players:
+
+        row_top = y
+
+        row_bottom = (
+            y
+            + row_height
+            - 7
+        )
 
         draw.rounded_rectangle(
             (
                 32,
-                y,
+                row_top,
                 WIDTH - 32,
-                y + row_height - 8,
+                row_bottom,
             ),
             radius=18,
             fill=ROW + (255,),
@@ -783,23 +807,23 @@ def create_card(
         )
 
         # -----------------------------------------------------
-        # PLAYER IMAGE
+        # PLAYER PHOTO
         # -----------------------------------------------------
 
-        player_img = download_image(
+        player_image = download_image(
             get_player_image(
                 player.get("photo")
             )
         )
 
-        image_size = 95
+        image_box = 96
 
-        if player_img:
+        if player_image:
 
-            player_img.thumbnail(
+            player_image.thumbnail(
                 (
-                    image_size,
-                    image_size,
+                    image_box,
+                    image_box,
                 ),
                 Image.Resampling.LANCZOS,
             )
@@ -807,8 +831,8 @@ def create_card(
             mask = Image.new(
                 "L",
                 (
-                    image_size,
-                    image_size,
+                    image_box,
+                    image_box,
                 ),
                 0,
             )
@@ -821,8 +845,8 @@ def create_card(
                 (
                     0,
                     0,
-                    image_size,
-                    image_size,
+                    image_box,
+                    image_box,
                 ),
                 fill=255,
             )
@@ -830,27 +854,27 @@ def create_card(
             photo_layer = Image.new(
                 "RGBA",
                 (
-                    image_size,
-                    image_size,
+                    image_box,
+                    image_box,
                 ),
                 (0, 0, 0, 0),
             )
 
-            px = (
-                image_size
-                - player_img.width
+            photo_x = (
+                image_box
+                - player_image.width
             ) // 2
 
-            py = (
-                image_size
-                - player_img.height
+            photo_y = (
+                image_box
+                - player_image.height
             ) // 2
 
             photo_layer.alpha_composite(
-                player_img,
+                player_image,
                 (
-                    px,
-                    py,
+                    photo_x,
+                    photo_y,
                 ),
             )
 
@@ -861,28 +885,31 @@ def create_card(
             canvas.alpha_composite(
                 photo_layer,
                 (
-                    55,
-                    y + 16,
+                    50,
+                    row_top + 10,
                 ),
             )
 
         # -----------------------------------------------------
-        # PLAYER TEXT
+        # PLAYER INFORMATION
         # -----------------------------------------------------
 
-        text_x = 155
+        text_x = 170
 
         draw.text(
             (
                 text_x,
-                y + 13,
+                row_top + 8,
             ),
             player["name"],
             font=player_font,
             fill=PLAYER_COLOR,
         )
 
-        # Team crest.
+        # -----------------------------------------------------
+        # TEAM CREST + TEAM / POSITION / PRICE
+        # -----------------------------------------------------
+
         crest = download_image(
             get_team_logo(
                 player.get("team_code")
@@ -890,18 +917,10 @@ def create_card(
         )
 
         crest_x = text_x
-        crest_y = y + 56
-        crest_size = 24
+        crest_y = row_top + 58
+        crest_box = 26
 
         if crest:
-
-            crest.thumbnail(
-                (
-                    crest_size,
-                    crest_size,
-                ),
-                Image.Resampling.LANCZOS,
-            )
 
             paste_contain(
                 canvas,
@@ -909,12 +928,12 @@ def create_card(
                 (
                     crest_x,
                     crest_y,
-                    crest_x + crest_size,
-                    crest_y + crest_size,
+                    crest_x + crest_box,
+                    crest_y + crest_box,
                 ),
             )
 
-            crest_x += 34
+            crest_x += 35
 
         metadata = (
             f"{player['team']} • "
@@ -925,18 +944,21 @@ def create_card(
         draw.text(
             (
                 crest_x,
-                y + 58,
+                row_top + 57,
             ),
             metadata,
             font=meta_font,
-            fill=MUTED,
+            fill=BLACK,
         )
 
-        # Ownership line.
+        # -----------------------------------------------------
+        # OWNERSHIP + CHANGE
+        # -----------------------------------------------------
+
         ownership = format_ownership(
             player.get(
                 "ownership",
-                0,
+                "0.0",
             )
         )
 
@@ -945,35 +967,44 @@ def create_card(
         )
 
         if delta is None:
-            ownership_line = (
+
+            ownership_text = (
                 f"OWN {ownership}"
             )
+
         else:
+
             sign = (
                 "+"
                 if delta > 0
                 else ""
             )
 
-            ownership_line = (
+            ownership_text = (
                 f"OWN {ownership} • "
                 f"Δ {sign}{delta:.1f}pp"
             )
 
-        ownership_x = 900
+        ownership_width = text_width(
+            draw,
+            ownership_text,
+            small_font,
+        )
 
         draw.text(
             (
-                ownership_x,
-                y + 20,
+                WIDTH
+                - ownership_width
+                - 70,
+                row_top + 18,
             ),
-            ownership_line,
-            font=status_font,
+            ownership_text,
+            font=small_font,
             fill=MUTED,
         )
 
         # -----------------------------------------------------
-        # SHORT STATUS LINE
+        # SHORT UPDATE LINE
         # -----------------------------------------------------
 
         chance = player.get(
@@ -1006,30 +1037,39 @@ def create_card(
 
         else:
 
-            update_text = shorten_text(
+            news = shorten_text(
                 player.get("news"),
                 48,
             )
 
             update_line = (
-                f"{update_text} • "
+                f"{news} • "
                 f"{chance_text} • "
                 f"Return {return_text}"
             )
 
         update_line = shorten_text(
             update_line,
-            102,
+            110,
+        )
+
+        update_font_actual = fit_font(
+            draw,
+            update_line,
+            1370,
+            27,
+            min_size=18,
+            bold=False,
         )
 
         draw.text(
             (
                 text_x,
-                y + 89,
+                row_top + 87,
             ),
             update_line,
-            font=update_font,
-            fill=WHITE,
+            font=update_font_actual,
+            fill=BLACK,
         )
 
         # -----------------------------------------------------
@@ -1042,43 +1082,50 @@ def create_card(
 
         if fixture:
 
-            fdr = fixture.get(
-                "difficulty"
-            )
-
             try:
-                fdr_value = int(
-                    fdr
+                fdr = int(
+                    fixture.get(
+                        "difficulty",
+                        3,
+                    )
                 )
             except Exception:
-                fdr_value = 3
+                fdr = 3
 
-            fdr_color = get_fdr_color(
-                fdr_value
+            fdr = max(
+                1,
+                min(
+                    5,
+                    fdr,
+                ),
             )
 
-            fdr_x = 1305
+            fdr_color = get_fdr_color(
+                fdr
+            )
+
+            fdr_x = WIDTH - 230
 
             draw.text(
                 (
                     fdr_x,
-                    y + 57,
+                    row_top + 56,
                 ),
                 "FDR",
-                font=status_font,
+                font=small_font,
                 fill=MUTED,
             )
 
             circle_x = (
-                fdr_x + 60
+                fdr_x + 58
             )
 
             draw.ellipse(
                 (
                     circle_x,
-                    y + 58,
+                    row_top + 59,
                     circle_x + 22,
-                    y + 80,
+                    row_top + 81,
                 ),
                 fill=fdr_color,
             )
@@ -1086,17 +1133,17 @@ def create_card(
             draw.text(
                 (
                     circle_x + 32,
-                    y + 56,
+                    row_top + 55,
                 ),
-                f"{fdr_value}/5",
-                font=status_font,
-                fill=WHITE,
+                f"{fdr}/5",
+                font=small_font,
+                fill=BLACK,
             )
 
         y += row_height
 
     # ---------------------------------------------------------
-    # TAKEAWAY
+    # FPL TAKEAWAY
     # ---------------------------------------------------------
 
     takeaway_y = (
@@ -1116,49 +1163,42 @@ def create_card(
         width=2,
     )
 
-    takeaway_title_font = load_font(
+    takeaway_label_font = load_font(
         21,
         bold=True,
-    )
-
-        takeaway_font = fit_font(
-        draw,
-        build_takeaway(
-            category
-        ),
-        1180,
-        28,
-        min_size=20,
-        bold=False,
     )
 
     draw.text(
         (
             55,
-            takeaway_y + 20,
+            takeaway_y + 18,
         ),
         "FPL TAKEAWAY",
-        font=takeaway_title_font,
+        font=takeaway_label_font,
         fill=style["header"],
     )
 
     draw.text(
         (
             250,
-            takeaway_y + 20,
+            takeaway_y + 16,
         ),
         build_takeaway(
             category
         ),
         font=takeaway_font,
-        fill=WHITE,
+        fill=BLACK,
     )
 
-       # ---------------------------------------------------------
+    # ---------------------------------------------------------
     # FOOTER
     # ---------------------------------------------------------
 
-    footer_y = height - footer_height + 10
+    footer_y = (
+        height
+        - footer_height
+        + 9
+    )
 
     footer_font = load_font(
         18,
@@ -1190,7 +1230,9 @@ def create_card(
 
     draw.text(
         (
-            WIDTH - right_width - 55,
+            WIDTH
+            - right_width
+            - 55,
             footer_y,
         ),
         right_footer,
