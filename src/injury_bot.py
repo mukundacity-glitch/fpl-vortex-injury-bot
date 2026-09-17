@@ -1905,8 +1905,6 @@ def save_state(state):
         encoding="utf-8",
     )
 
-
-def load_state():
 def load_state():
     if not STATE_FILE.exists():
         return {}
