@@ -649,7 +649,7 @@ def create_card(
     logo = load_logo()
 
     header_height = 108
-    row_height = 122
+    row_height = 116
     takeaway_height = 88
     footer_height = 48
 
@@ -693,15 +693,15 @@ def create_card(
         canvas,
         logo,
         (
-            45,
-            17,
-            125,
-            91,
+            40,
+            12,
+            130,
+            96,
         ),
     )
 
     header_font = load_font(
-        42,
+        45,
         bold=True,
     )
 
@@ -746,22 +746,22 @@ def create_card(
     # ---------------------------------------------------------
 
     player_font = load_font(
-        31,
+        44,
         bold=True,
     )
 
     meta_font = load_font(
-        21,
+        27,
         bold=False,
     )
 
     update_font = load_font(
-        21,
+        28,
         bold=False,
     )
 
     status_font = load_font(
-        20,
+        27,
         bold=True,
     )
 
@@ -792,7 +792,7 @@ def create_card(
             )
         )
 
-        image_size = 84
+        image_size = 95
 
         if player_img:
 
@@ -870,7 +870,7 @@ def create_card(
         # PLAYER TEXT
         # -----------------------------------------------------
 
-        text_x = 165
+        text_x = 155
 
         draw.text(
             (
@@ -960,7 +960,7 @@ def create_card(
                 f"Δ {sign}{delta:.1f}pp"
             )
 
-        ownership_x = 940
+        ownership_x = 900
 
         draw.text(
             (
@@ -1121,14 +1121,14 @@ def create_card(
         bold=True,
     )
 
-    takeaway_font = fit_font(
+        takeaway_font = fit_font(
         draw,
         build_takeaway(
             category
         ),
-        1160,
-        22,
-        min_size=17,
+        1180,
+        28,
+        min_size=20,
         bold=False,
     )
 
@@ -1154,7 +1154,7 @@ def create_card(
         fill=WHITE,
     )
 
-    # ---------------------------------------------------------
+       # ---------------------------------------------------------
     # FOOTER
     # ---------------------------------------------------------
 
@@ -1165,16 +1165,35 @@ def create_card(
         bold=False,
     )
 
+    left_footer = "FPL VORTEX"
+
+    right_footer = (
+        f"Official FPL Data • "
+        f"{style['hash']}"
+    )
+
     draw.text(
         (
             55,
             footer_y,
         ),
+        left_footer,
+        font=footer_font,
+        fill=MUTED,
+    )
+
+    right_width = text_width(
+        draw,
+        right_footer,
+        footer_font,
+    )
+
+    draw.text(
         (
-            f"FPL VORTEX • "
-            f"Official FPL data • "
-            f"{style['hash']}"
+            WIDTH - right_width - 55,
+            footer_y,
         ),
+        right_footer,
         font=footer_font,
         fill=MUTED,
     )
