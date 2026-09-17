@@ -11,6 +11,7 @@ on:
         options:
           - preview
           - test
+          - baseline
           - monitor
 
   schedule:
