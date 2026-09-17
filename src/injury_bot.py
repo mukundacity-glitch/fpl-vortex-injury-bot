@@ -10,7 +10,7 @@ FPL_API_URL = "https://fantasy.premierleague.com/api/bootstrap-static/"
 FPL_FIXTURES_URL = "https://fantasy.premierleague.com/api/fixtures/?future=1"
 
 DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL")
-TEST_MODE = os.environ.get("TEST_MODE", "false").lower() == "true"
+TEST_MODE = os.environ.get("TEST_MODE", "monitor").lower()
 
 STATE_FILE = Path("data/injury_state.json")
 X_DRAFT_FILE = Path("data/x_drafts.json")
@@ -890,13 +890,139 @@ def build_player_record(
 
 
 def main():
-    if TEST_MODE:
+    if TEST_MODE == "test":
         send_discord_embed(
             build_test_embed()
         )
 
         print(
-            "Rich Discord test sent successfully."
+            "Rich Discord connection test sent successfully."
+        )
+
+        return
+
+    data = fetch_json(
+        FPL_API_URL
+    )
+
+    fixtures = fetch_json(
+        FPL_FIXTURES_URL
+    )
+
+    teams_by_id = {
+        team["id"]: team
+        for team in data.get(
+            "teams",
+            []
+        )
+    }
+
+    current_event = next(
+        (
+            event
+            for event in data.get(
+                "events",
+                []
+            )
+            if event.get(
+                "is_current"
+            )
+        ),
+        None
+    )
+
+    gameweek = (
+        current_event.get("id", "?")
+        if current_event
+        else "?"
+    )
+
+    # ---------------------------------------------------------
+    # REAL PLAYER PREVIEW
+    # ---------------------------------------------------------
+
+    if TEST_MODE == "preview":
+
+        preview_player = None
+        preview_record = None
+
+        for player in data.get(
+            "elements",
+            []
+        ):
+            record = build_player_record(
+                player,
+                teams_by_id
+            )
+
+            if record is not None:
+                preview_player = player
+                preview_record = record
+                break
+
+        if preview_record is None:
+            raise RuntimeError(
+                "No player with injury or availability data was found."
+            )
+
+        fixture = get_next_fixture(
+            preview_record["team_id"],
+            fixtures,
+            teams_by_id
+        )
+
+        status = preview_record["status"]
+
+        if status == "a":
+            event_type = "AVAILABILITY UPDATE"
+        elif status == "d":
+            event_type = "FITNESS DOUBT"
+        elif status == "i":
+            event_type = "NEW INJURY"
+        elif status == "s":
+            event_type = "SUSPENSION UPDATE"
+        else:
+            event_type = "INJURY NEWS UPDATE"
+
+        embed = build_embed(
+            preview_record,
+            event_type,
+            gameweek,
+            fixture
+        )
+
+        send_discord_embed(
+            embed
+        )
+
+        x_post = build_x_post(
+            preview_record,
+            event_type,
+            fixture
+        )
+
+        save_x_draft(
+            str(preview_player["id"]),
+            {
+                "created_at": datetime.now(
+                    timezone.utc
+                ).isoformat(),
+                "player": preview_record["name"],
+                "event_type": event_type,
+                "text": x_post,
+            }
+        )
+
+        print(
+            "Real FPL player preview sent successfully."
+        )
+
+        print(
+            f"Player: {preview_record['name']}"
+        )
+
+        print(
+            f"Event: {event_type}"
         )
 
         return
