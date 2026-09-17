@@ -42,7 +42,7 @@ jobs:
           python -m pip install requests Pillow
 
       - name: Restore injury state
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: data
           key: fpl-injury-state-${{ github.run_id }}
@@ -55,13 +55,13 @@ jobs:
       - name: Run FPL Vortex Injury Engine
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          TEST_MODE: ${{ inputs.mode }}
+          TEST_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'monitor' }}
         run: |
           python src/injury_bot.py
 
       - name: Save injury state
-        if: always()
-        uses: actions/cache/save@v5
+        if: success()
+        uses: actions/cache/save@v6
         with:
           path: data
           key: fpl-injury-state-${{ github.run_id }}
