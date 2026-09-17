@@ -3,11 +3,15 @@ name: FPL Vortex Injury News
 on:
   workflow_dispatch:
     inputs:
-      test_discord:
-        description: "Send a rich Discord test message"
+      mode:
+        description: "Choose what to run"
         required: true
-        default: false
-        type: boolean
+        default: preview
+        type: choice
+        options:
+          - preview
+          - test
+          - monitor
 
   schedule:
     - cron: "7,22,37,52 * * * *"
@@ -46,6 +50,6 @@ jobs:
       - name: Run FPL Vortex Injury Engine
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          TEST_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.test_discord || false }}
+          TEST_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'monitor' }}
         run: |
           python src/injury_bot.py
