@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "Choose what to run"
+        description: Choose what to run
         required: true
         default: preview
         type: choice
@@ -31,7 +31,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-            - name: Set up Python
+      - name: Set up Python
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
@@ -42,19 +42,26 @@ jobs:
           python -m pip install -r requirements.txt
 
       - name: Restore injury state
-        uses: actions/cache@v6
+        uses: actions/cache/restore@v4
         with:
           path: data
           key: fpl-injury-state-${{ github.run_id }}
           restore-keys: |
             fpl-injury-state-
 
-      - name: Prepare data directory
+      - name: Create data directory
         run: mkdir -p data
 
       - name: Run FPL Vortex Injury Engine
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          TEST_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'monitor' }}
+          TEST_MODE: ${{ inputs.mode }}
         run: |
           python src/injury_bot.py
+
+      - name: Save injury state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data
+          key: fpl-injury-state-${{ github.run_id }}
