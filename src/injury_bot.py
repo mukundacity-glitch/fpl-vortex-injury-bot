@@ -642,82 +642,34 @@ def create_card(
     players,
     gameweek,
 ):
-    style = CATEGORY_STYLE[
-        category
-    ]
-
+    """Create a cleaner, more readable Discord injury graphic."""
+    style = CATEGORY_STYLE[category]
     logo = load_logo()
 
-    header_height = 108
-    row_height = 118
-    takeaway_height = 82
-    footer_height = 48
+    # ---------------------------------------------------------
+    # COMPACT 16:9-STYLE DISCORD CARD
+    # ---------------------------------------------------------
+
+    header_height = 120
+    row_height = 145
+    takeaway_height = 78
+    footer_height = 38
 
     height = (
         header_height
         + row_height * len(players)
         + takeaway_height
         + footer_height
-        + 24
+        + 20
     )
 
     canvas = Image.new(
         "RGBA",
-        (
-            WIDTH,
-            height,
-        ),
-        BACKGROUND + (255,),
+        (WIDTH, height),
+        (18, 22, 30, 255),
     )
 
-    draw = ImageDraw.Draw(
-        canvas
-    )
-
-    # ---------------------------------------------------------
-    # FONTS
-    # ---------------------------------------------------------
-
-    header_font = load_font(
-        52,
-        bold=True,
-    )
-
-    gameweek_font = load_font(
-        30,
-        bold=True,
-    )
-
-    player_font = load_font(
-        44,
-        bold=True,
-    )
-
-    meta_font = load_font(
-        27,
-        bold=True,
-    )
-
-    update_font = load_font(
-        27,
-        bold=False,
-    )
-
-    small_font = load_font(
-        22,
-        bold=False,
-    )
-
-    takeaway_font = fit_font(
-        draw,
-        build_takeaway(
-            category
-        ),
-        1150,
-        28,
-        min_size=20,
-        bold=False,
-    )
+    draw = ImageDraw.Draw(canvas)
 
     # ---------------------------------------------------------
     # HEADER
@@ -733,14 +685,15 @@ def create_card(
         fill=style["header"] + (255,),
     )
 
+    # Larger real FPL Vortex logo.
     paste_contain(
         canvas,
         logo,
         (
-            38,
-            10,
-            132,
-            98,
+            35,
+            12,
+            155,
+            108,
         ),
     )
 
@@ -749,31 +702,57 @@ def create_card(
         f"{style['label']}"
     )
 
+    header_font = fit_font(
+        draw,
+        header_text,
+        1050,
+        52,
+        min_size=38,
+        bold=True,
+    )
+
     draw.text(
         (
-            148,
-            26,
+            175,
+            29,
         ),
         header_text,
         font=header_font,
         fill=BLACK,
     )
 
+    # Gameweek.
     gw_text = f"GW{gameweek}"
+
+    gw_font = load_font(
+        30,
+        bold=True,
+    )
 
     gw_width = text_width(
         draw,
         gw_text,
-        gameweek_font,
+        gw_font,
+    )
+
+    draw.rounded_rectangle(
+        (
+            WIDTH - gw_width - 65,
+            35,
+            WIDTH - 25,
+            88,
+        ),
+        radius=14,
+        fill=(255, 255, 255, 235),
     )
 
     draw.text(
         (
             WIDTH - gw_width - 45,
-            36,
+            43,
         ),
         gw_text,
-        font=gameweek_font,
+        font=gw_font,
         fill=BLACK,
     )
 
@@ -781,7 +760,27 @@ def create_card(
     # PLAYER ROWS
     # ---------------------------------------------------------
 
-    y = header_height + 10
+    y = header_height + 8
+
+    player_font = load_font(
+        42,
+        bold=True,
+    )
+
+    meta_font = load_font(
+        25,
+        bold=True,
+    )
+
+    update_font = load_font(
+        23,
+        bold=False,
+    )
+
+    small_font = load_font(
+        20,
+        bold=True,
+    )
 
     for player in players:
 
@@ -795,14 +794,14 @@ def create_card(
 
         draw.rounded_rectangle(
             (
-                32,
+                30,
                 row_top,
-                WIDTH - 32,
+                WIDTH - 30,
                 row_bottom,
             ),
             radius=18,
-            fill=ROW + (255,),
-            outline=BORDER + (255,),
+            fill=(245, 246, 248, 255),
+            outline=(185, 188, 194, 255),
             width=2,
         )
 
@@ -816,7 +815,7 @@ def create_card(
             )
         )
 
-        image_box = 96
+        image_box = 108
 
         if player_image:
 
@@ -845,8 +844,8 @@ def create_card(
                 (
                     0,
                     0,
-                    image_box,
-                    image_box,
+                    image_box - 1,
+                    image_box - 1,
                 ),
                 fill=255,
             )
@@ -860,21 +859,17 @@ def create_card(
                 (0, 0, 0, 0),
             )
 
-            photo_x = (
-                image_box
-                - player_image.width
-            ) // 2
-
-            photo_y = (
-                image_box
-                - player_image.height
-            ) // 2
-
             photo_layer.alpha_composite(
                 player_image,
                 (
-                    photo_x,
-                    photo_y,
+                    (
+                        image_box
+                        - player_image.width
+                    ) // 2,
+                    (
+                        image_box
+                        - player_image.height
+                    ) // 2,
                 ),
             )
 
@@ -885,8 +880,8 @@ def create_card(
             canvas.alpha_composite(
                 photo_layer,
                 (
-                    50,
-                    row_top + 10,
+                    48,
+                    row_top + 12,
                 ),
             )
 
@@ -894,20 +889,37 @@ def create_card(
         # PLAYER INFORMATION
         # -----------------------------------------------------
 
-        text_x = 170
+        text_x = 180
+
+        # Reserve right side for ownership/FDR.
+        main_width = 1080
+
+        player_name = shorten_text(
+            player.get("name"),
+            32,
+        )
+
+        player_name_font = fit_font(
+            draw,
+            player_name,
+            main_width,
+            42,
+            min_size=30,
+            bold=True,
+        )
 
         draw.text(
             (
                 text_x,
-                row_top + 8,
+                row_top + 9,
             ),
-            player["name"],
-            font=player_font,
+            player_name,
+            font=player_name_font,
             fill=PLAYER_COLOR,
         )
 
         # -----------------------------------------------------
-        # TEAM CREST + TEAM / POSITION / PRICE
+        # TEAM CREST
         # -----------------------------------------------------
 
         crest = download_image(
@@ -917,8 +929,8 @@ def create_card(
         )
 
         crest_x = text_x
-        crest_y = row_top + 58
-        crest_box = 26
+        crest_y = row_top + 60
+        crest_size = 27
 
         if crest:
 
@@ -928,12 +940,12 @@ def create_card(
                 (
                     crest_x,
                     crest_y,
-                    crest_x + crest_box,
-                    crest_y + crest_box,
+                    crest_x + crest_size,
+                    crest_y + crest_size,
                 ),
             )
 
-            crest_x += 35
+            crest_x += 37
 
         metadata = (
             f"{player['team']} • "
@@ -941,70 +953,27 @@ def create_card(
             f"{format_price(player['now_cost'])}"
         )
 
+        metadata_font = fit_font(
+            draw,
+            metadata,
+            main_width,
+            25,
+            min_size=18,
+            bold=True,
+        )
+
         draw.text(
             (
                 crest_x,
-                row_top + 57,
+                row_top + 58,
             ),
             metadata,
-            font=meta_font,
+            font=metadata_font,
             fill=BLACK,
         )
 
         # -----------------------------------------------------
-        # OWNERSHIP + CHANGE
-        # -----------------------------------------------------
-
-        ownership = format_ownership(
-            player.get(
-                "ownership",
-                "0.0",
-            )
-        )
-
-        delta = player.get(
-            "ownership_delta"
-        )
-
-        if delta is None:
-
-            ownership_text = (
-                f"OWN {ownership}"
-            )
-
-        else:
-
-            sign = (
-                "+"
-                if delta > 0
-                else ""
-            )
-
-            ownership_text = (
-                f"OWN {ownership} • "
-                f"Δ {sign}{delta:.1f}pp"
-            )
-
-        ownership_width = text_width(
-            draw,
-            ownership_text,
-            small_font,
-        )
-
-        draw.text(
-            (
-                WIDTH
-                - ownership_width
-                - 70,
-                row_top + 18,
-            ),
-            ownership_text,
-            font=small_font,
-            fill=MUTED,
-        )
-
-        # -----------------------------------------------------
-        # SHORT UPDATE LINE
+        # UPDATE
         # -----------------------------------------------------
 
         chance = player.get(
@@ -1012,7 +981,7 @@ def create_card(
         )
 
         chance_text = (
-            "?"
+            "TBC"
             if chance is None
             else f"{chance}%"
         )
@@ -1053,23 +1022,84 @@ def create_card(
             110,
         )
 
-        update_font_actual = fit_font(
+        update_actual = fit_font(
             draw,
             update_line,
-            1370,
-            27,
-            min_size=18,
+            main_width,
+            23,
+            min_size=17,
             bold=False,
         )
 
         draw.text(
             (
                 text_x,
-                row_top + 87,
+                row_top + 94,
             ),
             update_line,
-            font=update_font_actual,
+            font=update_actual,
             fill=BLACK,
+        )
+
+        # -----------------------------------------------------
+        # OWNERSHIP
+        # -----------------------------------------------------
+
+        ownership = format_ownership(
+            player.get(
+                "ownership",
+                "0.0",
+            )
+        )
+
+        delta = player.get(
+            "ownership_delta"
+        )
+
+        if delta is None:
+
+            ownership_text = (
+                f"OWN {ownership}"
+            )
+
+        else:
+
+            sign = (
+                "+"
+                if delta > 0
+                else ""
+            )
+
+            ownership_text = (
+                f"OWN {ownership} "
+                f"• Δ {sign}{delta:.1f}pp"
+            )
+
+        ownership_font = fit_font(
+            draw,
+            ownership_text,
+            300,
+            20,
+            min_size=15,
+            bold=True,
+        )
+
+        ownership_width = text_width(
+            draw,
+            ownership_text,
+            ownership_font,
+        )
+
+        draw.text(
+            (
+                WIDTH
+                - ownership_width
+                - 65,
+                row_top + 20,
+            ),
+            ownership_text,
+            font=ownership_font,
+            fill=MUTED,
         )
 
         # -----------------------------------------------------
@@ -1100,16 +1130,12 @@ def create_card(
                 ),
             )
 
-            fdr_color = get_fdr_color(
-                fdr
-            )
-
-            fdr_x = WIDTH - 230
+            fdr_x = WIDTH - 220
 
             draw.text(
                 (
                     fdr_x,
-                    row_top + 56,
+                    row_top + 58,
                 ),
                 "FDR",
                 font=small_font,
@@ -1117,22 +1143,24 @@ def create_card(
             )
 
             circle_x = (
-                fdr_x + 58
+                fdr_x + 55
             )
 
             draw.ellipse(
                 (
                     circle_x,
-                    row_top + 59,
+                    row_top + 60,
                     circle_x + 22,
-                    row_top + 81,
+                    row_top + 82,
                 ),
-                fill=fdr_color,
+                fill=get_fdr_color(
+                    fdr
+                ),
             )
 
             draw.text(
                 (
-                    circle_x + 32,
+                    circle_x + 31,
                     row_top + 55,
                 ),
                 f"{fdr}/5",
@@ -1164,14 +1192,27 @@ def create_card(
     )
 
     takeaway_label_font = load_font(
-        21,
+        20,
         bold=True,
+    )
+
+    takeaway = build_takeaway(
+        category
+    )
+
+    takeaway_actual = fit_font(
+        draw,
+        takeaway,
+        WIDTH - 330,
+        24,
+        min_size=17,
+        bold=False,
     )
 
     draw.text(
         (
             55,
-            takeaway_y + 18,
+            takeaway_y + 22,
         ),
         "FPL TAKEAWAY",
         font=takeaway_label_font,
@@ -1181,35 +1222,26 @@ def create_card(
     draw.text(
         (
             250,
-            takeaway_y + 16,
+            takeaway_y + 19,
         ),
-        build_takeaway(
-            category
-        ),
-        font=takeaway_font,
+        takeaway,
+        font=takeaway_actual,
         fill=BLACK,
     )
 
     # ---------------------------------------------------------
-    # FOOTER
+    # SMALL FOOTER
     # ---------------------------------------------------------
 
     footer_y = (
         height
         - footer_height
-        + 9
+        + 8
     )
 
     footer_font = load_font(
-        18,
+        14,
         bold=False,
-    )
-
-    left_footer = "FPL VORTEX"
-
-    right_footer = (
-        f"Official FPL Data • "
-        f"{style['hash']}"
     )
 
     draw.text(
@@ -1217,9 +1249,14 @@ def create_card(
             55,
             footer_y,
         ),
-        left_footer,
+        "FPL VORTEX",
         font=footer_font,
         fill=MUTED,
+    )
+
+    right_footer = (
+        f"Official FPL Data • "
+        f"{style['hash']}"
     )
 
     right_width = text_width(
