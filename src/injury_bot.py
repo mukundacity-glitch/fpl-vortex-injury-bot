@@ -17,39 +17,58 @@ RUN_MODE = os.environ.get("TEST_MODE", "monitor").lower()
 
 STATE_FILE = Path("data/injury_state.json")
 X_DRAFT_FILE = Path("data/x_drafts.json")
+LOGO_FILE = Path("logo.png")
+
 
 WIDTH = 1600
 
-BACKGROUND = (8, 15, 28)
-PANEL = (15, 27, 45)
-ROW = (18, 32, 52)
-BORDER = (38, 57, 79)
+BACKGROUND = (218, 220, 223)
+CARD = (235, 236, 238)
+ROW = (245, 245, 246)
+BORDER = (190, 192, 195)
 
-WHITE = (242, 246, 250)
-MUTED = (157, 174, 192)
-PLAYER_COLOR = (79, 190, 255)
-BLACK = (8, 10, 12)
+WHITE = (20, 20, 20)
+MUTED = (70, 70, 70)
+PLAYER_COLOR = (30, 95, 150)
+BLACK = (0, 0, 0)
+
+RED = (222, 55, 55)
+YELLOW = (235, 185, 45)
+GREEN = (55, 184, 100)
+
+FDR_COLORS = {
+    1: (64, 190, 105),
+    2: (116, 201, 93),
+    3: (235, 194, 55),
+    4: (239, 137, 52),
+    5: (220, 61, 61),
+}
+
 
 CATEGORY_STYLE = {
     "INJURY": {
         "label": "INJURY UPDATE",
         "symbol": "!",
-        "header": (220, 55, 55),
+        "header": RED,
+        "hash": "#FPL #FPLNews #FPLInjury",
     },
     "DOUBT": {
         "label": "FITNESS DOUBT",
         "symbol": "!",
-        "header": (236, 184, 45),
+        "header": YELLOW,
+        "hash": "#FPL #FPLNews #FPLInjury",
     },
     "SUSPENSION": {
         "label": "SUSPENSION UPDATE",
         "symbol": "X",
-        "header": (205, 55, 55),
+        "header": RED,
+        "hash": "#FPL #FPLNews #FPLSuspension",
     },
     "AVAILABLE": {
         "label": "AVAILABLE",
         "symbol": "✓",
-        "header": (57, 184, 103),
+        "header": GREEN,
+        "hash": "#FPL #FPLNews",
     },
 }
 
@@ -63,11 +82,11 @@ POSITION_TEXT = {
 
 
 STATUS_TEXT = {
-    "a": "Available",
-    "d": "Doubt",
-    "i": "Injured",
-    "s": "Suspended",
-    "u": "Unavailable",
+    "a": "AVAILABLE",
+    "d": "DOUBT",
+    "i": "INJURED",
+    "s": "SUSPENDED",
+    "u": "UNAVAILABLE",
 }
 
 
@@ -107,14 +126,13 @@ def download_image(url):
 
     except Exception as exc:
         print(
-            f"Image download failed: {exc}"
+            f"Could not download image: {exc}"
         )
+
         return None
 
 
 def load_font(size, bold=False):
-    candidates = []
-
     if bold:
         candidates = [
             "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
@@ -144,6 +162,67 @@ def clean_text(text):
     )
 
 
+def text_width(draw, text, font):
+    box = draw.textbbox(
+        (0, 0),
+        text,
+        font=font,
+    )
+
+    return box[2] - box[0]
+
+
+def fit_font(
+    draw,
+    text,
+    max_width,
+    start_size,
+    min_size=16,
+    bold=False,
+):
+    size = start_size
+
+    while size >= min_size:
+        font = load_font(
+            size,
+            bold=bold,
+        )
+
+        if text_width(
+            draw,
+            text,
+            font,
+        ) <= max_width:
+            return font
+
+        size -= 1
+
+    return load_font(
+        min_size,
+        bold=bold,
+    )
+
+
+def shorten_text(
+    text,
+    max_chars,
+):
+    text = clean_text(text)
+
+    if not text:
+        return "No update provided"
+
+    if len(text) <= max_chars:
+        return text
+
+    trimmed = text[:max_chars].rsplit(
+        " ",
+        1,
+    )[0]
+
+    return f"{trimmed}..."
+
+
 def get_position(element_type):
     return POSITION_TEXT.get(
         element_type,
@@ -154,13 +233,13 @@ def get_position(element_type):
 def get_status(status):
     return STATUS_TEXT.get(
         status,
-        status or "Unknown",
+        status or "UNKNOWN",
     )
 
 
-def format_price(value):
+def format_price(now_cost):
     try:
-        return f"£{float(value) / 10:.1f}m"
+        return f"£{float(now_cost) / 10:.1f}m"
     except Exception:
         return "£0.0m"
 
@@ -172,21 +251,45 @@ def format_ownership(value):
         return "0.0%"
 
 
-def shorten_news(news, limit=70):
-    text = clean_text(news)
+def get_player_image(photo):
+    if not photo:
+        return None
 
-    if not text:
-        return "No additional update"
+    photo_id = str(photo)
 
-    if len(text) <= limit:
-        return text
+    if photo_id.endswith(".jpg"):
+        photo_id = photo_id[:-4]
 
-    shortened = text[:limit].rsplit(
-        " ",
-        1,
-    )[0]
+    if not photo_id.isdigit():
+        return None
 
-    return f"{shortened}..."
+    return (
+        "https://resources.premierleague.com/"
+        "premierleague/photos/players/250x250/"
+        f"p{photo_id}.png"
+    )
+
+
+def get_team_logo(team_code):
+    if not team_code:
+        return None
+
+    return (
+        "https://resources.premierleague.com/"
+        f"premierleague/badges/t{team_code}.png"
+    )
+
+
+def get_fdr_color(difficulty):
+    try:
+        value = int(difficulty)
+    except Exception:
+        value = 3
+
+    return FDR_COLORS.get(
+        value,
+        FDR_COLORS[3],
+    )
 
 
 def extract_expected_return(news):
@@ -222,35 +325,6 @@ def extract_expected_return(news):
             return match.group(0)
 
     return "TBC"
-
-
-def get_player_image(photo):
-    if not photo:
-        return None
-
-    photo_id = str(photo)
-
-    if photo_id.endswith(".jpg"):
-        photo_id = photo_id[:-4]
-
-    if not photo_id.isdigit():
-        return None
-
-    return (
-        "https://resources.premierleague.com/"
-        "premierleague/photos/players/250x250/"
-        f"p{photo_id}.png"
-    )
-
-
-def get_team_logo(team_code):
-    if not team_code:
-        return None
-
-    return (
-        "https://resources.premierleague.com/"
-        f"premierleague/badges/t{team_code}.png"
-    )
 
 
 def build_player_record(
@@ -330,7 +404,7 @@ def build_player_record(
     }
 
 
-def is_injury_related(record):
+def is_relevant(record):
     if not record:
         return False
 
@@ -342,49 +416,53 @@ def is_injury_related(record):
     )
 
 
-def classify_event(
+def classify_category(
     old_record,
     new_record,
 ):
-    old_status = (
-        old_record.get("status", "a")
-        if old_record
-        else "a"
-    )
-
-    new_status = new_record.get(
+    status = new_record.get(
         "status",
         "a",
     )
 
-    if new_status == "i":
+    if status == "i":
         return "INJURY"
 
-    if new_status == "d":
+    if status == "d":
         return "DOUBT"
 
-    if new_status == "s":
+    if status == "s":
         return "SUSPENSION"
 
-    if new_status == "a":
-        if old_status in (
-            "i",
-            "d",
-            "u",
-        ):
-            return "AVAILABLE"
+    if status == "a":
 
         if old_record:
-            if (
-                old_record.get("chance_next")
-                != new_record.get("chance_next")
+
+            old_status = old_record.get(
+                "status",
+                "a",
+            )
+
+            if old_status in (
+                "i",
+                "d",
+                "u",
             ):
                 return "AVAILABLE"
 
-    if new_record.get("news"):
-        return "INJURY"
+            if (
+                old_record.get(
+                    "chance_next"
+                )
+                != new_record.get(
+                    "chance_next"
+                )
+            ):
+                return "AVAILABLE"
 
-    return "AVAILABLE"
+        return "AVAILABLE"
+
+    return "INJURY"
 
 
 def get_next_fixture(
@@ -392,20 +470,27 @@ def get_next_fixture(
     fixtures,
     teams_by_id,
 ):
-    candidates = []
+    options = []
 
     for fixture in fixtures:
 
         if fixture.get("finished"):
             continue
 
-        event = fixture.get("event")
+        event = fixture.get(
+            "event"
+        )
 
         if event is None:
             continue
 
-        home = fixture.get("team_h")
-        away = fixture.get("team_a")
+        home = fixture.get(
+            "team_h"
+        )
+
+        away = fixture.get(
+            "team_a"
+        )
 
         if (
             home != player_team_id
@@ -414,6 +499,7 @@ def get_next_fixture(
             continue
 
         if home == player_team_id:
+
             opponent = teams_by_id.get(
                 away,
                 {},
@@ -429,6 +515,7 @@ def get_next_fixture(
             )
 
         else:
+
             opponent = teams_by_id.get(
                 home,
                 {},
@@ -443,7 +530,7 @@ def get_next_fixture(
                 "team_a_difficulty"
             )
 
-        candidates.append(
+        options.append(
             {
                 "event": event,
                 "opponent": opponent,
@@ -455,7 +542,7 @@ def get_next_fixture(
             }
         )
 
-    candidates.sort(
+    options.sort(
         key=lambda item: (
             item["event"],
             item["kickoff"] or "",
@@ -463,71 +550,21 @@ def get_next_fixture(
     )
 
     return (
-        candidates[0]
-        if candidates
+        options[0]
+        if options
         else None
-    )
-
-
-def build_short_update(player):
-    news = shorten_news(
-        player.get("news"),
-        60,
-    )
-
-    chance = player.get(
-        "chance_next"
-    )
-
-    chance_text = (
-        "?"
-        if chance is None
-        else f"{chance}%"
-    )
-
-    return_text = extract_expected_return(
-        player.get("news")
-    )
-
-    status = player.get(
-        "status"
-    )
-
-    if status == "s":
-        return (
-            f"Suspended • "
-            f"Return {return_text}"
-        )
-
-    if status == "a":
-        if player.get("news"):
-            return (
-                f"{news} • "
-                f"{chance_text} • "
-                f"Available"
-            )
-
-        return (
-            f"Available • "
-            f"{chance_text}"
-        )
-
-    return (
-        f"{news} • "
-        f"{chance_text} • "
-        f"Return {return_text}"
     )
 
 
 def build_takeaway(category):
     if category == "INJURY":
         return (
-            "If any are in your squad, monitor the next confirmed update before transferring."
+            "Monitor the next confirmed update before making a transfer."
         )
 
     if category == "DOUBT":
         return (
-            "If any are in your squad, hold fire and monitor the next team news."
+            "Hold fire and monitor final team news before the deadline."
         )
 
     if category == "SUSPENSION":
@@ -536,73 +573,68 @@ def build_takeaway(category):
         )
 
     return (
-        "The latest availability signal is positive, but monitor final team news."
+        "Availability is positive, but monitor final team news."
     )
 
 
-def build_x_post(
-    category,
-    players,
-    fixture_lookup,
+def load_logo():
+    if not LOGO_FILE.exists():
+        print(
+            "logo.png not found. Continuing without logo."
+        )
+
+        return None
+
+    try:
+        return Image.open(
+            LOGO_FILE
+        ).convert("RGBA")
+    except Exception as exc:
+        print(
+            f"Could not load logo.png: {exc}"
+        )
+
+        return None
+
+
+def paste_contain(
+    base,
+    image,
+    box,
 ):
-    style = CATEGORY_STYLE[
-        category
-    ]
+    if image is None:
+        return
 
-    header = (
-        f"{style['symbol']} "
-        f"{style['label']}"
+    x1, y1, x2, y2 = box
+
+    max_width = x2 - x1
+    max_height = y2 - y1
+
+    image = image.copy()
+
+    image.thumbnail(
+        (
+            max_width,
+            max_height,
+        ),
+        Image.Resampling.LANCZOS,
     )
 
-    player_bits = []
+    x = x1 + (
+        max_width - image.width
+    ) // 2
 
-    for player in players:
+    y = y1 + (
+        max_height - image.height
+    ) // 2
 
-        chance = player.get(
-            "chance_next"
-        )
-
-        chance_text = (
-            "?"
-            if chance is None
-            else f"{chance}%"
-        )
-
-        player_bits.append(
-            f"{player['name']} "
-            f"({chance_text})"
-        )
-
-    names = ", ".join(
-        player_bits
+    base.alpha_composite(
+        image,
+        (
+            x,
+            y,
+        ),
     )
-
-    takeaway = build_takeaway(
-        category
-    )
-
-    text = (
-        f"{header}\n"
-        f"{names}\n"
-        f"{takeaway}\n"
-        "#FPL #FPLNews #FPLInjury"
-    )
-
-    if len(text) <= 275:
-        return text
-
-    compact_names = ", ".join(
-        player["name"]
-        for player in players[:3]
-    )
-
-    text = (
-        f"{header}\n"
-        f"{compact_names}\n"
-        f"#FPL #FPLNews #FPLInjury"
-    )
-
-    return text[:275]
 
 
 def create_card(
@@ -614,64 +646,32 @@ def create_card(
         category
     ]
 
-    row_height = 128
+    logo = load_logo()
 
-    header_height = 105
-
-    takeaway_height = 92
-
-    footer_height = 55
+    header_height = 108
+    row_height = 122
+    takeaway_height = 88
+    footer_height = 48
 
     height = (
         header_height
-        + len(players) * row_height
+        + row_height * len(players)
         + takeaway_height
         + footer_height
-        + 40
+        + 28
     )
 
-    image = Image.new(
-        "RGB",
-        (WIDTH, height),
-        BACKGROUND,
+    canvas = Image.new(
+        "RGBA",
+        (
+            WIDTH,
+            height,
+        ),
+        BACKGROUND + (255,),
     )
 
     draw = ImageDraw.Draw(
-        image
-    )
-
-    # ---------------------------------------------------------
-    # FONTS
-    # ---------------------------------------------------------
-
-    header_font = load_font(
-        48,
-        bold=True,
-    )
-
-    player_font = load_font(
-        31,
-        bold=True,
-    )
-
-    metadata_font = load_font(
-        21,
-        bold=False,
-    )
-
-    update_font = load_font(
-        22,
-        bold=False,
-    )
-
-    takeaway_font = load_font(
-        23,
-        bold=True,
-    )
-
-    footer_font = load_font(
-        19,
-        bold=False,
+        canvas
     )
 
     # ---------------------------------------------------------
@@ -685,42 +685,59 @@ def create_card(
             WIDTH,
             header_height,
         ),
-        fill=style["header"],
+        fill=style["header"] + (255,),
     )
 
-    header_text = (
-        f"{style['symbol']} "
-        f"FPL VORTEX • "
-        f"{style['label']}"
+    # Logo before symbol.
+    paste_contain(
+        canvas,
+        logo,
+        (
+            45,
+            17,
+            125,
+            91,
+        ),
+    )
+
+    header_font = load_font(
+        42,
+        bold=True,
     )
 
     draw.text(
         (
-            55,
-            31,
+            145,
+            30,
         ),
-        header_text,
+        (
+            f"{style['symbol']} "
+            f"{style['label']}"
+        ),
         font=header_font,
         fill=BLACK,
     )
 
+    gw_font = load_font(
+        30,
+        bold=True,
+    )
+
     gw_text = f"GW{gameweek}"
 
-    gw_width = (
-        draw.textbbox(
-            (0, 0),
-            gw_text,
-            font=metadata_font,
-        )[2]
+    gw_width = text_width(
+        draw,
+        gw_text,
+        gw_font,
     )
 
     draw.text(
         (
-            WIDTH - gw_width - 55,
-            39,
+            WIDTH - gw_width - 45,
+            34,
         ),
         gw_text,
-        font=metadata_font,
+        font=gw_font,
         fill=BLACK,
     )
 
@@ -728,65 +745,70 @@ def create_card(
     # PLAYER ROWS
     # ---------------------------------------------------------
 
-    y = header_height + 15
+    player_font = load_font(
+        31,
+        bold=True,
+    )
 
-    for index, player in enumerate(
-        players
-    ):
-        row_top = y
+    meta_font = load_font(
+        21,
+        bold=False,
+    )
 
-        row_bottom = (
-            y + row_height - 10
-        )
+    update_font = load_font(
+        21,
+        bold=False,
+    )
+
+    status_font = load_font(
+        20,
+        bold=True,
+    )
+
+    y = header_height + 12
+
+    for player in players:
 
         draw.rounded_rectangle(
             (
-                40,
-                row_top,
-                WIDTH - 40,
-                row_bottom,
+                32,
+                y,
+                WIDTH - 32,
+                y + row_height - 8,
             ),
-            radius=20,
-            fill=ROW,
-            outline=BORDER,
+            radius=18,
+            fill=ROW + (255,),
+            outline=BORDER + (255,),
             width=2,
         )
 
-        # Player photo.
-        player_image = download_image(
+        # -----------------------------------------------------
+        # PLAYER IMAGE
+        # -----------------------------------------------------
+
+        player_img = download_image(
             get_player_image(
                 player.get("photo")
             )
         )
 
-        image_box = 86
+        image_size = 84
 
-        if player_image:
+        if player_img:
 
-            player_image.thumbnail(
+            player_img.thumbnail(
                 (
-                    image_box,
-                    image_box,
+                    image_size,
+                    image_size,
                 ),
                 Image.Resampling.LANCZOS,
-            )
-
-            px = 65
-
-            py = (
-                row_top
-                + 18
-                + (
-                    image_box
-                    - player_image.height
-                ) // 2
             )
 
             mask = Image.new(
                 "L",
                 (
-                    image_box,
-                    image_box,
+                    image_size,
+                    image_size,
                 ),
                 0,
             )
@@ -799,61 +821,61 @@ def create_card(
                 (
                     0,
                     0,
-                    image_box,
-                    image_box,
+                    image_size,
+                    image_size,
                 ),
                 fill=255,
             )
 
-            image.paste(
-                player_image,
+            photo_layer = Image.new(
+                "RGBA",
+                (
+                    image_size,
+                    image_size,
+                ),
+                (0, 0, 0, 0),
+            )
+
+            px = (
+                image_size
+                - player_img.width
+            ) // 2
+
+            py = (
+                image_size
+                - player_img.height
+            ) // 2
+
+            photo_layer.alpha_composite(
+                player_img,
                 (
                     px,
                     py,
                 ),
-                mask,
             )
 
-        else:
+            photo_layer.putalpha(
+                mask
+            )
 
-            draw.ellipse(
+            canvas.alpha_composite(
+                photo_layer,
                 (
-                    65,
-                    row_top + 18,
-                    65 + image_box,
-                    row_top + 18 + image_box,
+                    55,
+                    y + 16,
                 ),
-                fill=(31, 50, 72),
             )
 
-            initials = (
-                player["name"][:1]
-                or "F"
-            )
+        # -----------------------------------------------------
+        # PLAYER TEXT
+        # -----------------------------------------------------
 
-            initials_font = load_font(
-                38,
-                bold=True,
-            )
+        text_x = 165
 
-            draw.text(
-                (
-                    91,
-                    row_top + 34,
-                ),
-                initials,
-                font=initials_font,
-                fill=PLAYER_COLOR,
-            )
-
-        # Text start.
-        text_x = 180
-
-        # Player name.
         draw.text(
             (
                 text_x,
-                row_top + 14,
+                y + 13,
             ),
             player["name"],
             font=player_font,
@@ -868,92 +890,208 @@ def create_card(
         )
 
         crest_x = text_x
-
-        crest_y = row_top + 57
+        crest_y = y + 56
+        crest_size = 24
 
         if crest:
 
             crest.thumbnail(
                 (
-                    28,
-                    28,
+                    crest_size,
+                    crest_size,
                 ),
                 Image.Resampling.LANCZOS,
             )
 
-            image.paste(
+            paste_contain(
+                canvas,
                 crest,
                 (
                     crest_x,
                     crest_y,
+                    crest_x + crest_size,
+                    crest_y + crest_size,
                 ),
-                crest,
             )
 
-            crest_x += 38
-
-        # Metadata line.
-        ownership = format_ownership(
-            player.get(
-                "ownership",
-                "0.0",
-            )
-        )
-
-        ownership_delta = player.get(
-            "ownership_delta"
-        )
-
-        if ownership_delta is None:
-            ownership_text = (
-                f"OWN {ownership}"
-            )
-        else:
-            sign = (
-                "+"
-                if ownership_delta > 0
-                else ""
-            )
-
-            ownership_text = (
-                f"OWN {ownership} • "
-                f"Δ {sign}{ownership_delta:.1f}pp"
-            )
+            crest_x += 34
 
         metadata = (
             f"{player['team']} • "
             f"{player['position']} • "
             f"{format_price(player['now_cost'])}"
-            f" • "
-            f"{ownership_text}"
         )
 
         draw.text(
             (
                 crest_x,
-                row_top + 59,
+                y + 58,
             ),
             metadata,
-            font=metadata_font,
+            font=meta_font,
             fill=MUTED,
         )
 
-        # Short injury/update line.
-        update = build_short_update(
-            player
+        # Ownership line.
+        ownership = format_ownership(
+            player.get(
+                "ownership",
+                0,
+            )
         )
 
-        update_start = text_x
+        delta = player.get(
+            "ownership_delta"
+        )
+
+        if delta is None:
+            ownership_line = (
+                f"OWN {ownership}"
+            )
+        else:
+            sign = (
+                "+"
+                if delta > 0
+                else ""
+            )
+
+            ownership_line = (
+                f"OWN {ownership} • "
+                f"Δ {sign}{delta:.1f}pp"
+            )
+
+        ownership_x = 940
 
         draw.text(
             (
-                update_start,
-                row_top + 91,
+                ownership_x,
+                y + 20,
             ),
-            update[:105],
+            ownership_line,
+            font=status_font,
+            fill=MUTED,
+        )
+
+        # -----------------------------------------------------
+        # SHORT STATUS LINE
+        # -----------------------------------------------------
+
+        chance = player.get(
+            "chance_next"
+        )
+
+        chance_text = (
+            "?"
+            if chance is None
+            else f"{chance}%"
+        )
+
+        return_text = extract_expected_return(
+            player.get("news")
+        )
+
+        if player["status"] == "s":
+
+            update_line = (
+                f"SUSPENDED • "
+                f"Return {return_text}"
+            )
+
+        elif player["status"] == "a":
+
+            update_line = (
+                f"AVAILABLE • "
+                f"Chance {chance_text}"
+            )
+
+        else:
+
+            update_text = shorten_text(
+                player.get("news"),
+                48,
+            )
+
+            update_line = (
+                f"{update_text} • "
+                f"{chance_text} • "
+                f"Return {return_text}"
+            )
+
+        update_line = shorten_text(
+            update_line,
+            102,
+        )
+
+        draw.text(
+            (
+                text_x,
+                y + 89,
+            ),
+            update_line,
             font=update_font,
             fill=WHITE,
         )
+
+        # -----------------------------------------------------
+        # FDR
+        # -----------------------------------------------------
+
+        fixture = player.get(
+            "fixture"
+        )
+
+        if fixture:
+
+            fdr = fixture.get(
+                "difficulty"
+            )
+
+            try:
+                fdr_value = int(
+                    fdr
+                )
+            except Exception:
+                fdr_value = 3
+
+            fdr_color = get_fdr_color(
+                fdr_value
+            )
+
+            fdr_x = 1305
+
+            draw.text(
+                (
+                    fdr_x,
+                    y + 57,
+                ),
+                "FDR",
+                font=status_font,
+                fill=MUTED,
+            )
+
+            circle_x = (
+                fdr_x + 60
+            )
+
+            draw.ellipse(
+                (
+                    circle_x,
+                    y + 58,
+                    circle_x + 22,
+                    y + 80,
+                ),
+                fill=fdr_color,
+            )
+
+            draw.text(
+                (
+                    circle_x + 32,
+                    y + 56,
+                ),
+                f"{fdr_value}/5",
+                font=status_font,
+                fill=WHITE,
+            )
 
         y += row_height
 
@@ -961,43 +1099,57 @@ def create_card(
     # TAKEAWAY
     # ---------------------------------------------------------
 
-    takeaway_top = (
+    takeaway_y = (
         header_height
-        + len(players) * row_height
-        + 5
+        + row_height * len(players)
+        + 2
     )
 
     draw.line(
         (
-            55,
-            takeaway_top,
-            WIDTH - 55,
-            takeaway_top,
+            45,
+            takeaway_y,
+            WIDTH - 45,
+            takeaway_y,
         ),
         fill=BORDER,
         width=2,
     )
 
-    takeaway = build_takeaway(
-        category
+    takeaway_title_font = load_font(
+        21,
+        bold=True,
+    )
+
+    takeaway_font = fit_font(
+        draw,
+        build_takeaway(
+            category
+        ),
+        1160,
+        22,
+        min_size=17,
+        bold=False,
     )
 
     draw.text(
         (
             55,
-            takeaway_top + 17,
+            takeaway_y + 20,
         ),
         "FPL TAKEAWAY",
-        font=metadata_font,
+        font=takeaway_title_font,
         fill=style["header"],
     )
 
     draw.text(
         (
-            245,
-            takeaway_top + 17,
+            250,
+            takeaway_y + 20,
         ),
-        takeaway[:145],
+        build_takeaway(
+            category
+        ),
         font=takeaway_font,
         fill=WHITE,
     )
@@ -1006,7 +1158,12 @@ def create_card(
     # FOOTER
     # ---------------------------------------------------------
 
-    footer_y = height - 48
+    footer_y = height - footer_height + 10
+
+    footer_font = load_font(
+        18,
+        bold=False,
+    )
 
     draw.text(
         (
@@ -1016,24 +1173,15 @@ def create_card(
         (
             f"FPL VORTEX • "
             f"Official FPL data • "
-            f"#FPL #FPLNews #FPLInjury"
+            f"{style['hash']}"
         ),
         font=footer_font,
         fill=MUTED,
     )
 
-    draw.text(
-        (
-            WIDTH - 250,
-            footer_y,
-        ),
-        f"{len(players)} PLAYER"
-        f"{'' if len(players) == 1 else 'S'}",
-        font=footer_font,
-        fill=MUTED,
+    return canvas.convert(
+        "RGB"
     )
-
-    return image
 
 
 def send_discord_card(
@@ -1055,12 +1203,16 @@ def send_discord_card(
 
     buffer.seek(0)
 
+    style = CATEGORY_STYLE[
+        category
+    ]
+
     payload = {
         "username": "FPL Vortex Injury News",
         "content": (
-            f"{CATEGORY_STYLE[category]['symbol']} "
+            f"{style['symbol']} "
             f"FPL Vortex • "
-            f"{CATEGORY_STYLE[category]['label']}"
+            f"{style['label']}"
         ),
         "allowed_mentions": {
             "parse": [],
@@ -1087,6 +1239,66 @@ def send_discord_card(
     response.raise_for_status()
 
 
+def build_x_post(
+    category,
+    players,
+):
+    style = CATEGORY_STYLE[
+        category
+    ]
+
+    names = ", ".join(
+        player["name"]
+        for player in players
+    )
+
+    chance_values = []
+
+    for player in players:
+        chance = player.get(
+            "chance_next"
+        )
+
+        if chance is not None:
+            chance_values.append(
+                str(chance)
+            )
+
+    chance_text = ""
+
+    if chance_values:
+        chance_text = (
+            f" | Chance "
+            f"{'/'.join(chance_values[:3])}%"
+        )
+
+    text = (
+        f"{style['symbol']} "
+        f"{style['label']}\n"
+        f"{names}"
+        f"{chance_text}\n"
+        f"{build_takeaway(category)}\n"
+        f"{style['hash']}"
+    )
+
+    if len(text) <= 275:
+        return text
+
+    compact_names = ", ".join(
+        player["name"]
+        for player in players[:3]
+    )
+
+    text = (
+        f"{style['symbol']} "
+        f"{style['label']}\n"
+        f"{compact_names}\n"
+        f"{style['hash']}"
+    )
+
+    return text[:275]
+
+
 def save_x_draft(
     category,
     players,
@@ -1109,14 +1321,17 @@ def save_x_draft(
         except Exception:
             drafts = {}
 
-    drafts[
-        f"{datetime.now(timezone.utc).isoformat()}_{category}"
-    ] = {
+    key = (
+        f"{datetime.now(timezone.utc).isoformat()}"
+        f"_{category}"
+    )
+
+    drafts[key] = {
         "created_at": datetime.now(
             timezone.utc
         ).isoformat(),
-        "category": category,
         "gameweek": gameweek,
+        "category": category,
         "players": [
             player["name"]
             for player in players
@@ -1124,7 +1339,6 @@ def save_x_draft(
         "text": build_x_post(
             category,
             players,
-            {},
         ),
     }
 
@@ -1138,70 +1352,10 @@ def save_x_draft(
     )
 
 
-def run_preview():
-    data = fetch_json(
-        FPL_API_URL
-    )
-
-    teams_by_id = {
-        team["id"]: team
-        for team in data.get(
-            "teams",
-            []
-        )
-    }
-
-    current_event = next(
-    (
-        event
-        for event in data.get(
-            "events",
-            []
-        )
-        if event.get("is_current")
-    ),
-    None,
-)
-
-next_event = next(
-    (
-        event
-        for event in data.get(
-            "events",
-            []
-        )
-        if event.get("is_next")
-    ),
-    None,
-)
-
-unfinished_event = next(
-    (
-        event
-        for event in data.get(
-            "events",
-            []
-        )
-        if not event.get("finished")
-    ),
-    None,
-)
-
-selected_event = (
-    current_event
-    or next_event
-    or unfinished_event
-)
-
-gameweek = (
-    selected_event.get(
-        "id",
-        "?"
-    )
-    if selected_event
-    else "?"
-)
-
+def find_preview_players(
+    data,
+    teams_by_id,
+):
     selected = []
 
     for player in data.get(
@@ -1214,35 +1368,133 @@ gameweek = (
             teams_by_id,
         )
 
-        if not is_injury_related(
+        if not is_relevant(
             record
         ):
             continue
 
-        if record["status"] not in (
-            "i",
-            "d",
-            "s",
-            "a",
-        ):
-            continue
+        selected.append(
+            record
+        )
 
-        selected.append(record)
-
-        if len(selected) >= 10:
+        if len(selected) >= 12:
             break
 
-    if not selected:
-        raise RuntimeError(
-            "No injury or availability "
-            "players found."
+    return selected
+
+
+def current_gameweek(data):
+    current = next(
+        (
+            event
+            for event in data.get(
+                "events",
+                []
+            )
+            if event.get(
+                "is_current"
+            )
+        ),
+        None,
+    )
+
+    if current:
+        return current.get(
+            "id",
+            "?",
         )
+
+    next_event = next(
+        (
+            event
+            for event in data.get(
+                "events",
+                []
+            )
+            if event.get(
+                "is_next"
+            )
+        ),
+        None,
+    )
+
+    if next_event:
+        return next_event.get(
+            "id",
+            "?",
+        )
+
+    unfinished = next(
+        (
+            event
+            for event in data.get(
+                "events",
+                []
+            )
+            if not event.get(
+                "finished"
+            )
+        ),
+        None,
+    )
+
+    if unfinished:
+        return unfinished.get(
+            "id",
+            "?",
+        )
+
+    return "?"
+
+
+def run_preview():
+    data = fetch_json(
+        FPL_API_URL
+    )
+
+    fixtures = fetch_json(
+        FPL_FIXTURES_URL
+    )
+
+    teams_by_id = {
+        team["id"]: team
+        for team in data.get(
+            "teams",
+            []
+        )
+    }
+
+    gameweek = current_gameweek(
+        data
+    )
+
+    players = find_preview_players(
+        data,
+        teams_by_id,
+    )
+
+    if not players:
+        raise RuntimeError(
+            "No current injury or "
+            "availability players found."
+        )
+
+    for player in players:
+
+        fixture = get_next_fixture(
+            player["team_id"],
+            fixtures,
+            teams_by_id,
+        )
+
+        player["fixture"] = fixture
+        player["ownership_delta"] = None
 
     grouped = {}
 
-    for player in selected:
+    for player in players:
 
-        category = classify_event(
+        category = classify_category(
             None,
             player,
         )
@@ -1250,70 +1502,138 @@ gameweek = (
         grouped.setdefault(
             category,
             [],
-        ).append(player)
+        ).append(
+            player
+        )
 
-    # Preview one category containing
-    # multiple players whenever possible.
-    category_order = [
+    # Prefer a category with multiple players
+    # for the preview.
+    order = [
         "INJURY",
         "DOUBT",
         "SUSPENSION",
         "AVAILABLE",
     ]
 
-    preview_category = None
+    chosen_category = None
 
-    for category in category_order:
+    for category in order:
+
         if len(
             grouped.get(
                 category,
                 [],
             )
         ) >= 2:
-            preview_category = category
+
+            chosen_category = category
             break
 
-    if preview_category is None:
-        for category in category_order:
-            if grouped.get(category):
-                preview_category = category
+    if chosen_category is None:
+
+        for category in order:
+
+            if grouped.get(
+                category
+            ):
+
+                chosen_category = category
                 break
 
-    players = grouped[
-        preview_category
+    preview_players = grouped[
+        chosen_category
     ][:6]
 
     card = create_card(
-        preview_category,
-        players,
+        chosen_category,
+        preview_players,
         gameweek,
     )
 
     send_discord_card(
         card,
-        preview_category,
+        chosen_category,
     )
 
     save_x_draft(
-        preview_category,
-        players,
+        chosen_category,
+        preview_players,
         gameweek,
     )
 
     print(
-        "Grouped graphic preview sent."
+        "Graphic preview sent successfully."
     )
 
     print(
-        f"Category: {preview_category}"
+        f"Category: {chosen_category}"
     )
 
     print(
         "Players: "
         + ", ".join(
             player["name"]
-            for player in players
+            for player in preview_players
         )
+    )
+
+
+def run_test():
+    data = fetch_json(
+        FPL_API_URL
+    )
+
+    teams_by_id = {
+        team["id"]: team
+        for team in data.get(
+            "teams",
+            []
+        )
+    }
+
+    player = None
+
+    for item in data.get(
+        "elements",
+        []
+    ):
+
+        record = build_player_record(
+            item,
+            teams_by_id,
+        )
+
+        if is_relevant(
+            record
+        ):
+            player = record
+            break
+
+    if player is None:
+        raise RuntimeError(
+            "No player available for test."
+        )
+
+    category = classify_category(
+        None,
+        player,
+    )
+
+    card = create_card(
+        category,
+        [player],
+        current_gameweek(
+            data
+        ),
+    )
+
+    send_discord_card(
+        card,
+        category,
+    )
+
+    print(
+        "Single-player graphic test sent."
     )
 
 
@@ -1334,56 +1654,9 @@ def run_monitor():
         )
     }
 
-    current_event = next(
-    (
-        event
-        for event in data.get(
-            "events",
-            []
-        )
-        if event.get("is_current")
-    ),
-    None,
-)
-
-next_event = next(
-    (
-        event
-        for event in data.get(
-            "events",
-            []
-        )
-        if event.get("is_next")
-    ),
-    None,
-)
-
-unfinished_event = next(
-    (
-        event
-        for event in data.get(
-            "events",
-            []
-        )
-        if not event.get("finished")
-    ),
-    None,
-)
-
-selected_event = (
-    current_event
-    or next_event
-    or unfinished_event
-)
-
-gameweek = (
-    selected_event.get(
-        "id",
-        "?"
+    gameweek = current_gameweek(
+        data
     )
-    if selected_event
-    else "?"
-)
 
     current = {}
 
@@ -1405,6 +1678,7 @@ gameweek = (
 
     previous = load_state()
 
+    # First normal run creates the baseline.
     if not previous:
 
         save_state(
@@ -1412,7 +1686,7 @@ gameweek = (
         )
 
         print(
-            "Initial injury baseline created."
+            "Initial FPL injury baseline created."
         )
 
         print(
@@ -1433,14 +1707,21 @@ gameweek = (
         if old_record == new_record:
             continue
 
-        if not is_injury_related(
+        old_relevant = is_relevant(
             old_record
-        ) and not is_injury_related(
+        )
+
+        new_relevant = is_relevant(
             new_record
+        )
+
+        if (
+            not old_relevant
+            and not new_relevant
         ):
             continue
 
-        category = classify_event(
+        category = classify_category(
             old_record,
             new_record,
         )
@@ -1473,6 +1754,14 @@ gameweek = (
             ownership_delta
         )
 
+        fixture = get_next_fixture(
+            new_record["team_id"],
+            fixtures,
+            teams_by_id,
+        )
+
+        new_record["fixture"] = fixture
+
         grouped_changes.setdefault(
             category,
             [],
@@ -1480,54 +1769,63 @@ gameweek = (
             new_record
         )
 
+    # One card per category.
     for category, players in grouped_changes.items():
 
         players.sort(
-            key=lambda player: (
-                float(
-                    player.get(
-                        "ownership",
-                        0,
-                    )
-                    or 0
-                ),
+            key=lambda player: float(
+                player.get(
+                    "ownership",
+                    0,
+                ) or 0
             ),
             reverse=True,
         )
 
-        # Keep one compact card per category.
-        card = create_card(
-            category,
-            players,
-            gameweek,
-        )
+        # Discord remains compact while avoiding
+        # an extremely tall single card.
+        for start in range(
+            0,
+            len(players),
+            8,
+        ):
 
-        send_discord_card(
-            card,
-            category,
-        )
+            batch = players[
+                start:start + 8
+            ]
 
-        save_x_draft(
-            category,
-            players,
-            gameweek,
-        )
+            card = create_card(
+                category,
+                batch,
+                gameweek,
+            )
 
-        print(
-            f"Posted {category} card "
-            f"with {len(players)} player(s)."
-        )
+            send_discord_card(
+                card,
+                category,
+            )
+
+            save_x_draft(
+                category,
+                batch,
+                gameweek,
+            )
+
+            print(
+                f"Posted {category} card "
+                f"with {len(batch)} player(s)."
+            )
 
     save_state(
         current
     )
 
     print(
-        "FPL Vortex monitoring complete."
+        "FPL Vortex injury monitoring complete."
     )
 
     print(
-        f"Categories posted: "
+        f"Categories detected: "
         f"{len(grouped_changes)}"
     )
 
@@ -1547,66 +1845,12 @@ def load_state():
 
 
 def main():
-
     if RUN_MODE == "preview":
         run_preview()
         return
 
     if RUN_MODE == "test":
-        data = fetch_json(
-            FPL_API_URL
-        )
-
-        teams_by_id = {
-            team["id"]: team
-            for team in data.get(
-                "teams",
-                []
-            )
-        }
-
-        player = None
-
-        for item in data.get(
-            "elements",
-            []
-        ):
-            record = build_player_record(
-                item,
-                teams_by_id,
-            )
-
-            if is_injury_related(
-                record
-            ):
-                player = record
-                break
-
-        if player is None:
-            raise RuntimeError(
-                "No player available for test."
-            )
-
-        category = classify_event(
-            None,
-            player,
-        )
-
-        create_test = create_card(
-            category,
-            [player],
-            "TEST",
-        )
-
-        send_discord_card(
-            create_test,
-            category,
-        )
-
-        print(
-            "Graphic test sent."
-        )
-
+        run_test()
         return
 
     run_monitor()
