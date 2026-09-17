@@ -589,46 +589,54 @@ def build_embed(
         player["news"]
     )
 
+    description = (
+        f"**{ownership_delta_text}**\n\n"
+        f"**{player['name']}**\n"
+        f"{player['position']} • "
+        f"{format_price(player['now_cost'])}\n\n"
+        f"🏥 Status: **{get_status(player['status'])}** "
+        f"• ⚽ Chance of Playing: **{chance_text}**"
+    )
+
     embed = {
         "title": (
             f"{style['icon']} "
             f"FPL VORTEX • {event_type}"
         ),
-        "description": (
-            f"**{ownership_delta_text}**\n\n"
-            f"**{player['name']}**\n"
-            f"{player['position']} • "
-            f"{format_price(player['now_cost'])}\n\n"
-            f"🏥 Status: "
-            f"**{get_status(player['status'])}**\n"
-            f"⚽ Chance of Playing: "
-            f"**{chance_text}**"
-        ),
+
+        "description": description,
+
         "color": style["color"],
+
         "fields": [
             {
                 "name": "📰 Update",
                 "value": news[:500],
                 "inline": False,
             },
+
             {
                 "name": "📅 Expected Return",
                 "value": expected_return,
-                "inline": True,
+                "inline": False,
             },
+
             {
                 "name": "📈 Ownership",
-                "value": format_ownership(
-                    player["ownership"]
+                "value": (
+                    f"{format_ownership(player['ownership'])}"
+                    f" • {ownership_delta_text}"
                 ),
-                "inline": True,
+                "inline": False,
             },
+
             {
                 "name": "🎯 FPL Takeaway",
                 "value": takeaway[:300],
                 "inline": False,
             },
         ],
+
         "footer": {
             "text": (
                 f"FPL Vortex • GW{gameweek} • "
@@ -636,6 +644,7 @@ def build_embed(
                 "#FPL #FPLNews #FPLInjury"
             )
         },
+
         "timestamp": datetime.now(
             timezone.utc
         ).isoformat(),
