@@ -1,0 +1,29 @@
+name: Discord Webhook Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  discord-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send test message to Discord
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+            echo "DISCORD_WEBHOOK_URL secret is missing"
+            exit 1
+          fi
+
+          curl -fsS \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -d '{"content":"✅ **FPL VORTEX DISCORD TEST**\n\n🏥 Discord webhook is connected successfully.\n📡 The FPL injury bot is ready for the next step."}' \
+            "$DISCORD_WEBHOOK_URL"
+
+          echo "Discord test message sent successfully."
