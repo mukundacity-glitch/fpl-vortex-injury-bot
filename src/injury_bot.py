@@ -872,6 +872,138 @@ def build_x_post(
 
 
 def main():
+        if RUN_MODE == "preview":
+        data = fetch_json(
+            FPL_API_URL
+        )
+
+        fixtures = fetch_json(
+            FPL_FIXTURES_URL
+        )
+
+        teams_by_id = {
+            team["id"]: team
+            for team in data.get(
+                "teams",
+                []
+            )
+        }
+
+        current_event = next(
+            (
+                event
+                for event in data.get(
+                    "events",
+                    []
+                )
+                if event.get(
+                    "is_current"
+                )
+            ),
+            None,
+        )
+
+        gameweek = (
+            current_event.get(
+                "id",
+                "?"
+            )
+            if current_event
+            else "?"
+        )
+
+        preview_player = None
+        preview_record = None
+
+        # Prefer an actual injured or doubtful player.
+        for player in data.get(
+            "elements",
+            []
+        ):
+            record = build_player_record(
+                player,
+                teams_by_id,
+            )
+
+            if not record:
+                continue
+
+            if is_injury_related(
+                record
+            ):
+                preview_player = player
+                preview_record = record
+                break
+
+        if preview_record is None:
+            raise RuntimeError(
+                "No current injury or availability player found."
+            )
+
+        fixture = get_next_fixture(
+            preview_record["team_id"],
+            fixtures,
+            teams_by_id,
+        )
+
+        status = preview_record["status"]
+
+        if status == "i":
+            event_type = "NEW INJURY"
+        elif status == "d":
+            event_type = "FITNESS DOUBT"
+        elif status == "s":
+            event_type = "SUSPENSION UPDATE"
+        elif status == "a":
+            event_type = "RETURN UPDATE"
+        else:
+            event_type = "INJURY NEWS UPDATE"
+
+        embed = build_embed(
+            preview_record,
+            event_type,
+            gameweek,
+            fixture,
+            None,
+        )
+
+        send_discord_embed(
+            embed
+        )
+
+        x_post = build_x_post(
+            preview_record,
+            event_type,
+            fixture,
+        )
+
+        save_x_draft(
+            str(preview_player["id"]),
+            {
+                "created_at": datetime.now(
+                    timezone.utc
+                ).isoformat(),
+                "player": preview_record["name"],
+                "event_type": event_type,
+                "text": x_post,
+            },
+        )
+
+        print(
+            "Real FPL injury preview sent successfully."
+        )
+
+        print(
+            f"Preview player: "
+            f"{preview_record['name']}"
+        )
+
+        print(
+            f"Event type: "
+            f"{event_type}"
+        )
+
+        return
     if RUN_MODE == "test":
         send_discord_embed(
             build_test_embed()
