@@ -1928,6 +1928,51 @@ def main():
         run_test()
         return
 
+    if RUN_MODE == "baseline":
+        data = fetch_json(
+            FPL_API_URL
+        )
+
+        teams_by_id = {
+            team["id"]: team
+            for team in data.get(
+                "teams",
+                []
+            )
+        }
+
+        current = {}
+
+        for player in data.get(
+            "elements",
+            []
+        ):
+            player_id = str(
+                player["id"]
+            )
+
+            current[player_id] = (
+                build_player_record(
+                    player,
+                    teams_by_id
+                )
+            )
+
+        save_state(
+            current
+        )
+
+        print(
+            "FPL Vortex baseline created successfully."
+        )
+
+        print(
+            f"Players tracked: "
+            f"{len(current)}"
+        )
+
+        return
+
     run_monitor()
 
 
