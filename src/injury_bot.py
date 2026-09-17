@@ -1829,7 +1829,23 @@ def run_monitor():
         f"{len(grouped_changes)}"
     )
 
+def save_state(state):
+    STATE_FILE.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
+    STATE_FILE.write_text(
+        json.dumps(
+            state,
+            indent=2,
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+
+def load_state():
 def load_state():
     if not STATE_FILE.exists():
         return {}
