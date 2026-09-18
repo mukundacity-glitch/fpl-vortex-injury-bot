@@ -1,0 +1,83 @@
+name: FPL Vortex Price Change Predictions
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Run mode
+        required: true
+        default: post
+        type: choice
+        options:
+          - post
+          - preview
+      force:
+        description: Force a post even if today's card is unchanged
+        required: false
+        default: false
+        type: boolean
+
+  schedule:
+    # Final daily snapshot before the 00:00 UK price-change window.
+    - cron: "45 23 * * *"
+      timezone: "Europe/London"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fpl-vortex-price-change
+  cancel-in-progress: false
+
+jobs:
+  price-change:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install requests Pillow
+
+      - name: Restore price-change state
+        uses: actions/cache/restore@v6
+        with:
+          path: data
+          key: fpl-price-change-state-${{ github.run_id }}
+          restore-keys: |
+            fpl-price-change-state-
+
+      - name: Create data directory
+        run: mkdir -p data
+
+      - name: Run FPL Vortex Price Change Engine
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          PRICE_CHANGE_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'preview' && '1' || '0' }}
+          PRICE_CHANGE_FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force == true && '1' || '0' }}
+        run: |
+          python src/price_change_bot.py
+
+      - name: Upload preview image
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'preview' && success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fpl-vortex-price-change-preview
+          path: data/price_change_preview.png
+          if-no-files-found: error
+
+      - name: Save price-change state
+        if: success() && !(github.event_name == 'workflow_dispatch' && inputs.mode == 'preview')
+        uses: actions/cache/save@v6
+        with:
+          path: data
+          key: fpl-price-change-state-${{ github.run_id }}
