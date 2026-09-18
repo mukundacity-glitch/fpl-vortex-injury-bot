@@ -1196,7 +1196,7 @@ def create_card(
     draw.text(
         (
             28,
-            footer_y + 1,
+            footer_y - 3,
         ),
         "FPL VORTEX",
         font=footer_font,
@@ -1227,7 +1227,7 @@ def create_card(
     draw.text(
         (
             40 + channel_width,
-            footer_y + 1,
+            footer_y - 3,
         ),
         takeaway_full,
         font=takeaway_font,
@@ -1259,7 +1259,7 @@ def create_card(
             WIDTH
             - right_width
             - 28,
-            footer_y + 1,
+            footer_y - 3,
         ),
         right_footer,
         font=right_footer_font,
