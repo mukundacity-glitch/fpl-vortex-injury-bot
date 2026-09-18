@@ -22,14 +22,14 @@ LOGO_FILE = Path("logo.png")
 
 WIDTH = 1600
 
-BACKGROUND = (218, 220, 223)
-CARD = (235, 236, 238)
-ROW = (245, 245, 246)
-BORDER = (190, 192, 195)
+BACKGROUND = (255, 251, 218)
+CARD = (255, 253, 225)
+ROW = (255, 253, 225)
+BORDER = (210, 205, 165)
 
 WHITE = (20, 20, 20)
 MUTED = (70, 70, 70)
-PLAYER_COLOR = (30, 95, 150)
+PLAYER_COLOR = (24, 55, 110)
 BLACK = (0, 0, 0)
 
 RED = (222, 55, 55)
@@ -652,13 +652,11 @@ def create_card(
 
     header_height = 120
     row_height = 145
-    takeaway_height = 78
-    footer_height = 38
+    footer_height = 19
 
     height = (
         header_height
         + row_height * len(players)
-        + takeaway_height
         + footer_height
         + 20
     )
@@ -666,7 +664,7 @@ def create_card(
     canvas = Image.new(
         "RGBA",
         (WIDTH, height),
-        (18, 22, 30, 255),
+        BACKGROUND + (255,),
     )
 
     draw = ImageDraw.Draw(canvas)
@@ -690,10 +688,10 @@ def create_card(
         canvas,
         logo,
         (
-            35,
-            12,
-            155,
-            108,
+            25,
+            8,
+            165,
+            112,
         ),
     )
 
@@ -706,8 +704,8 @@ def create_card(
         draw,
         header_text,
         1050,
-        52,
-        min_size=38,
+        58,
+        min_size=42,
         bold=True,
     )
 
@@ -725,7 +723,7 @@ def create_card(
     gw_text = f"GW{gameweek}"
 
     gw_font = load_font(
-        30,
+        34,
         bold=True,
     )
 
@@ -800,7 +798,7 @@ def create_card(
                 row_bottom,
             ),
             radius=18,
-            fill=(245, 246, 248, 255),
+            fill=ROW + (255,),
             outline=(185, 188, 194, 255),
             width=2,
         )
@@ -1171,87 +1169,69 @@ def create_card(
         y += row_height
 
     # ---------------------------------------------------------
-    # FPL TAKEAWAY
+    # COMPACT FOOTER
     # ---------------------------------------------------------
 
-    takeaway_y = (
-        header_height
-        + row_height * len(players)
-        + 2
-    )
+    footer_y = height - footer_height
 
-    draw.line(
+    draw.rectangle(
         (
-            45,
-            takeaway_y,
-            WIDTH - 45,
-            takeaway_y,
+            0,
+            footer_y,
+            WIDTH,
+            height,
         ),
-        fill=BORDER,
-        width=2,
+        fill=(190, 255, 205, 255),
     )
 
-    takeaway_label_font = load_font(
-        20,
+    footer_font = fit_font(
+        draw,
+        "FPL VORTEX",
+        190,
+        17,
+        min_size=13,
         bold=True,
     )
 
-    takeaway = build_takeaway(
-        category
-    )
-
-    takeaway_actual = fit_font(
-        draw,
-        takeaway,
-        WIDTH - 330,
-        24,
-        min_size=17,
-        bold=False,
-    )
-
     draw.text(
         (
-            55,
-            takeaway_y + 22,
-        ),
-        "FPL TAKEAWAY",
-        font=takeaway_label_font,
-        fill=style["header"],
-    )
-
-    draw.text(
-        (
-            250,
-            takeaway_y + 19,
-        ),
-        takeaway,
-        font=takeaway_actual,
-        fill=BLACK,
-    )
-
-    # ---------------------------------------------------------
-    # SMALL FOOTER
-    # ---------------------------------------------------------
-
-    footer_y = (
-        height
-        - footer_height
-        + 8
-    )
-
-    footer_font = load_font(
-        14,
-        bold=False,
-    )
-
-    draw.text(
-        (
-            55,
-            footer_y,
+            28,
+            footer_y + 1,
         ),
         "FPL VORTEX",
         font=footer_font,
-        fill=MUTED,
+        fill=BLACK,
+    )
+
+    takeaway = build_takeaway(category)
+    takeaway_full = (
+        "  •  FPL TAKEAWAY: "
+        + shorten_text(takeaway, 58)
+    )
+
+    channel_width = text_width(
+        draw,
+        "FPL VORTEX",
+        footer_font,
+    )
+
+    takeaway_font = fit_font(
+        draw,
+        takeaway_full,
+        900,
+        17,
+        min_size=9,
+        bold=True,
+    )
+
+    draw.text(
+        (
+            40 + channel_width,
+            footer_y + 1,
+        ),
+        takeaway_full,
+        font=takeaway_font,
+        fill=RED,
     )
 
     right_footer = (
@@ -1259,22 +1239,31 @@ def create_card(
         f"{style['hash']}"
     )
 
+    right_footer_font = fit_font(
+        draw,
+        right_footer,
+        470,
+        17,
+        min_size=9,
+        bold=True,
+    )
+
     right_width = text_width(
         draw,
         right_footer,
-        footer_font,
+        right_footer_font,
     )
 
     draw.text(
         (
             WIDTH
             - right_width
-            - 55,
-            footer_y,
+            - 28,
+            footer_y + 1,
         ),
         right_footer,
-        font=footer_font,
-        fill=MUTED,
+        font=right_footer_font,
+        fill=BLACK,
     )
 
     return canvas.convert(
@@ -1803,6 +1792,23 @@ def run_monitor():
         )
 
         if old_record == new_record:
+            continue
+
+        meaningful_old = {
+            "status": (old_record or {}).get("status"),
+            "chance_next": (old_record or {}).get("chance_next"),
+            "chance_this": (old_record or {}).get("chance_this"),
+            "news": clean_text((old_record or {}).get("news")),
+        }
+
+        meaningful_new = {
+            "status": new_record.get("status"),
+            "chance_next": new_record.get("chance_next"),
+            "chance_this": new_record.get("chance_this"),
+            "news": clean_text(new_record.get("news")),
+        }
+
+        if meaningful_old == meaningful_new:
             continue
 
         old_relevant = is_relevant(
